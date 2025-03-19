@@ -1,0 +1,95 @@
+// src/pages/api/document-analysis.ts
+import type { NextApiRequest, NextApiResponse } from 'next';
+
+interface AnalysisRequest {
+  textBody: string;
+  keywords: string[];
+  analysisType: 'context' | 'intent' | 'summary' | 'all';
+}
+
+interface AnalysisResponse {
+  context?: string;
+  intent?: string;
+  summary?: string;
+  keywordsFound: string[];
+  processingTime: number;
+}
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<AnalysisResponse | { error: string }>
+) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { textBody, keywords, analysisType } = req.body as AnalysisRequest;
+    
+    if (!textBody || !keywords || !analysisType) {
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
+    const startTime = Date.now();
+    const result = await analyzeDocument(textBody, keywords, analysisType);
+    const processingTime = Date.now() - startTime;
+
+    res.status(200).json({
+      ...result,
+      keywordsFound: result.keywordsFound,
+      processingTime
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+async function analyzeDocument(
+  text: string,
+  keywords: string[],
+  type: AnalysisRequest['analysisType']
+): Promise<Partial<AnalysisResponse> & { keywordsFound: string[] }> {
+  const keywordsFound = keywords.filter(keyword => 
+    text.toLowerCase().includes(keyword.toLowerCase())
+  );
+
+  const result: Partial<AnalysisResponse> & { keywordsFound: string[] } = { keywordsFound };
+
+  switch (type) {
+    case 'context':
+      result.context = determineContext(text, keywordsFound);
+      break;
+    case 'intent':
+      result.intent = determineIntent(text, keywordsFound);
+      break;
+    case 'summary':
+      result.summary = generateSummary(text);
+      break;
+    case 'all':
+      result.context = determineContext(text, keywordsFound);
+      result.intent = determineIntent(text, keywordsFound);
+      result.summary = generateSummary(text);
+      break;
+  }
+
+  return result;
+}
+
+// Analysis helper functions
+function determineContext(text: string, keywords: string[]): string {
+  // Implement context analysis logic
+  // For legal documents, this could identify document type (contract, brief, etc.)
+  return 'Legal document context analysis';
+}
+
+function determineIntent(text: string, keywords: string[]): string {
+  // Implement intent detection logic
+  // Could detect if document is requesting action, stating facts, etc.
+  return 'Document intent analysis';
+}
+
+function generateSummary(text: string): string {
+  // Implement summarization logic
+  // Could use NLP techniques to extract key points
+  return text.split('.').slice(0, 2).join('.') + '.';
+}
